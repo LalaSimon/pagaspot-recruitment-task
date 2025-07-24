@@ -1,10 +1,16 @@
-import moment, { Moment } from "moment";
-import React, { useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { THEME_BLUE } from "@/constants/Colors";
+import { useCreateOrder } from "@/hooks/useCreateOrder";
+import dayjs, { DateType, DayFormat } from "@/utils/dateUtils";
+import { useState } from "react";
+import { StyleSheet, View } from "react-native";
 import { ThemedText } from "../ThemedText";
+import { CalendarDay } from "./CalendarDay";
+import { CalendarHeader } from "./CalendarHeader";
+import { CalendarSelectedDay } from "./CalendarSelectedDay";
+import { StatusBanner } from "./StatusBanner";
 
-export interface WeekViewProps {
-  from: Moment;
+interface WeekViewProps {
+  from: DateType;
   offerDays: string[];
   orderDays: string[];
 }
@@ -18,12 +24,7 @@ interface MonthDay {
   isCurrentMonth: boolean;
 }
 
-// TODO: use color theme 
-const blue = "#0070ff";
-const lightBlue = "#4688eb";
-const orange = "#ffaa2a";
-
-export const DayFormat = "YYYY-MM-DD";
+export { DayFormat };
 
 export default function MonthView({
   from,
@@ -31,28 +32,37 @@ export default function MonthView({
   offerDays,
 }: WeekViewProps) {
   const [width, setWidth] = useState<number>(0);
+  const [currentMonth, setCurrentMonth] = useState<DateType>(dayjs(from));
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const {
+    mutate: createOrder,
+    isPending: isCreatingOrder,
+    isSuccess: isOrderCreated,
+    isError: isOrderError,
+    reset: resetOrderState,
+  } = useCreateOrder();
 
-  // TODO: don't use momentjs - it's obsolete - switch to other library
-  const monthStart = moment(from).startOf("month");
-  const monthEnd = moment(from).endOf("month");
+  const monthStart = dayjs(currentMonth).startOf("month");
+  const monthEnd = dayjs(currentMonth).endOf("month");
 
-  const firstMonday = moment(monthStart).startOf("week");
-  const lastSunday = moment(monthEnd).endOf("week");
+  const firstMonday = dayjs(monthStart).startOf("week");
+  const lastSunday = dayjs(monthEnd).endOf("week");
 
-  const day = moment(firstMonday);
+  const day = dayjs(firstMonday);
   const days: MonthDay[] = [];
+  let currentDay = day;
 
-  while (day.isSameOrBefore(lastSunday)) {
+  while (currentDay.isSameOrBefore(lastSunday)) {
     days.push({
-      day: day.format("DD"),
-      date: day.format(DayFormat),
-      today: day.isSame(moment(), "day"),
-      offer: offerDays.includes(day.format(DayFormat)),
-      order: orderDays.includes(day.format(DayFormat)),
-      isCurrentMonth: day.isSame(from, "month"),
+      day: currentDay.format("DD"),
+      date: currentDay.format(DayFormat),
+      today: currentDay.isSame(dayjs(), "day"),
+      offer: offerDays.includes(currentDay.format(DayFormat)),
+      order: orderDays.includes(currentDay.format(DayFormat)),
+      isCurrentMonth: currentDay.isSame(currentMonth, "month"),
     });
 
-    day.add(1, "day");
+    currentDay = currentDay.add(1, "day");
   }
 
   const weeks: MonthDay[][] = [];
@@ -60,14 +70,45 @@ export default function MonthView({
     weeks.push(days.slice(i, i + 7));
   }
 
-  const weekDayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const weekDayNames = ["Pon", "Wt", "Śr", "Czw", "Pt", "Sob", "Nie"];
+
+  const handleDayPress = (date: string) => {
+    if (selectedDay === date) {
+      setSelectedDay(null);
+    } else {
+      const dayData = days.find((d) => d.date === date);
+      if (dayData?.offer) {
+        setSelectedDay(date);
+      }
+    }
+    resetOrderState();
+  };
+
+  const handlePreviousMonth = () => {
+    setCurrentMonth(currentMonth.subtract(1, "month"));
+    resetOrderState();
+  };
+
+  const handleNextMonth = () => {
+    setCurrentMonth(currentMonth.add(1, "month"));
+    resetOrderState();
+  };
+
+  const handleCreateOrder = (date: DateType) => {
+    createOrder(date);
+  };
 
   return (
     <View
       style={styles.days}
       onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
     >
-      {/* Week day header */}
+      <CalendarHeader
+        currentMonth={currentMonth}
+        onPreviousMonth={handlePreviousMonth}
+        onNextMonth={handleNextMonth}
+      />
+
       <View style={styles.weekHeader}>
         {weekDayNames.map((dayName) => (
           <View
@@ -86,87 +127,43 @@ export default function MonthView({
       {weeks.map((week, weekIndex) => (
         <View key={`week-${week[0]?.date || weekIndex}`} style={styles.weekRow}>
           {week.map((d) => (
-            <View
-              style={{
-                ...{
-                  width: width / 7,
-                  padding: 1,
-                },
-              }}
+            <CalendarDay
               key={d.date}
-            >
-
-            { /* TODO: Add ability to select day, mark selected day on the calendar.
-            Display day details below the calendar */}
-              <Pressable
-                style={{
-                  ...styles.touchableBox,
-                  ...(d.offer || !d.isCurrentMonth ? {} : styles.noOfferDay),
-                  ...(d.isCurrentMonth ? {} : styles.otherMonthDay),
-                  ...(d.today && d.isCurrentMonth
-                    ? styles.todayBackground
-                    : {}),
-                }}
-                onPress={() => {}}
-              >
-                <View style={styles.dayBox}>
-                  {d.isCurrentMonth && (
-                    <ThemedText
-                      style={{
-                        ...styles.dayText,
-                        ...(d.today ? { fontWeight: "bold", color: blue } : {}),
-                        ...(d.isCurrentMonth ? {} : styles.otherMonthText),
-                      }}
-                    >
-                      {d.day}
-                    </ThemedText>
-                  )}
-                </View>
-              </Pressable>
-            </View>
+              day={d}
+              width={width}
+              selectedDay={selectedDay}
+              onDayPress={handleDayPress}
+            />
           ))}
         </View>
       ))}
+
+      {/* Selected day section */}
+      {selectedDay && (
+        <CalendarSelectedDay
+          selectedDay={selectedDay}
+          isCreatingOrder={isCreatingOrder}
+          onCreateOrder={handleCreateOrder}
+        />
+      )}
+
+      {/* Status banners */}
+      <StatusBanner
+        type="success"
+        message="Zamówienie zostało utworzone pomyślnie"
+        visible={isOrderCreated && !isCreatingOrder}
+      />
+
+      <StatusBanner
+        type="error"
+        message="Wystąpił błąd podczas tworzenia zamówienia"
+        visible={isOrderError && !isCreatingOrder}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  status: {
-    position: "absolute",
-    borderRadius: 5,
-    width: 15,
-    aspectRatio: 1,
-  },
-  unavailable: {
-    opacity: 0.5,
-  },
-  ordered: {
-    top: -3,
-    right: -3,
-    backgroundColor: lightBlue,
-  },
-  orderedUnpaid: {
-    top: -3,
-    right: -3,
-    backgroundColor: orange,
-  },
-  cancelled: {
-    bottom: -3,
-    left: -3,
-    backgroundColor: "#666",
-  },
-  added: {
-    bottom: -3,
-    right: -3,
-    backgroundColor: blue,
-  },
-  orderedText: {
-    fontSize: 10,
-    textAlign: "center",
-    fontFamily: "poppins-bold",
-    color: "#fff",
-  },
   days: {
     marginVertical: 2,
     marginHorizontal: 2,
@@ -178,50 +175,11 @@ const styles = StyleSheet.create({
   weekRow: {
     flexDirection: "row",
   },
-  dayText: {
-    textAlign: "center",
-    fontSize: 13,
-  },
   weekDayName: {
     textAlign: "center",
-    color: "#aaa",
+    color: THEME_BLUE,
     fontFamily: "poppins-bold",
     textTransform: "uppercase",
-    fontSize: 8,
-  },
-  selectedDay: {
-    borderWidth: 2,
-    borderColor: blue,
-  },
-  today: {
-    color: "#555",
-  },
-  todayBackground: {
-    borderWidth: 1,
-    borderRadius: 4,
-    borderColor: blue,
-  },
-  touchableBox: {
-    backgroundColor: "#f6f6f6",
-    aspectRatio: 1,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: "#f6f6f6",
-    justifyContent: "center",
-  },
-  dayBox: {
-    justifyContent: "center",
-    marginHorizontal: 0,
-  },
-  otherMonthDay: {
-    backgroundColor: "#f0f0f0",
-    borderColor: "#f0f0f0",
-    opacity: 0.4,
-  },
-  noOfferDay: {
-    opacity: 0.4,
-  },
-  otherMonthText: {
-    color: "#ccc",
+    fontSize: 10,
   },
 });
