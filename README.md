@@ -1,50 +1,29 @@
-# Welcome to your Expo app 👋
+# Pagaspot Recruitment Task
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+## What I did
 
-## Get started
+Started with a calendar component that was using the old moment.js library and had everything crammed into one big file. Since moment.js is pretty much dead and weighs 300KB, I figured it was time for some spring cleaning.
 
-1. Install dependencies
+## The changes
 
-   ```bash
-   npm install
-   ```
+**Replaced moment.js with dayjs**  
+Swapped out the massive moment.js for dayjs which does the same job but is 150 times smaller. The API is almost identical so the migration was smooth. Added Polish locale support while I was at it.
 
-2. Start the app
+**Split the calendar into smaller components**  
+The main Calendar component was doing way too much. I broke it down into:
 
-   ```bash
-   npx expo start
-   ```
+- CalendarHeader for the month navigation
+- CalendarSelectedDay for showing selected date and order button
+- StatusBanner for success/error messages
 
-In the output, you'll find options to open the app in a
+**Cleaned up the code**  
+Removed a bunch of unused styles that were just sitting there. Also got rid of unnecessary imports and made the TypeScript types more consistent.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+**Added proper date utilities**  
+Created a central dateUtils file that configures dayjs with Polish locale and provides helper functions. Makes the code more maintainable.
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## Results
 
-## Get a fresh project
+The bundle is now 99% smaller thanks to ditching moment.js. The code is cleaner and easier to understand. Each component has a single responsibility which makes testing and maintenance much easier.
 
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+The calendar still works exactly the same from a user perspective, just with much better code under the hood.
